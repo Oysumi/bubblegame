@@ -6,7 +6,7 @@
 #include "handleevent.c"
    
 int main ( int argc, char * argv[] )
-{
+{ 
 
 	/* ************************ INITIALIZATION OF THE SCREEN ************************ */  
    
@@ -80,7 +80,24 @@ int main ( int argc, char * argv[] )
 
 	ceil_fall = ( timecontrol_t * ) malloc ( sizeof ( timecontrol_t ) ) ;
 
-	init_timer ( ceil_fall ) ;
+	init_timer ( ceil_fall ) ; 
+
+	/* ********************** INITIALIZATION OF MUSIC VARIABLES ******************** */
+
+	SDL_WM_SetCaption("SDL_Mixer", NULL) ;
+
+	Mix_OpenAudio (44100, MIX_DEFAULT_FORMAT, 2, 1024) ;
+
+	if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, MIX_DEFAULT_CHANNELS, 1024) == -1) //Initialisation de l'API Mixer
+	{
+   		printf("%s", Mix_GetError());
+	}
+
+	Mix_Music *musique ;
+
+	musique = Mix_LoadMUS ("../music/mario-world-intro.ogg") ;
+
+	Mix_PlayMusic (musique, -1) ; 
  
 	/* ************************ BEGINNING OF THE GAME ****************************** */ 
   
@@ -170,5 +187,9 @@ int main ( int argc, char * argv[] )
 	SDL_FreeSurface ( screen->frame ) ;
 	SDL_FreeSurface ( screen->screen ) ;
 	free ( screen ) ;
+	Mix_FreeMusic ( musique ) ;
+	Mix_CloseAudio() ;
+
+	return EXIT_SUCCESS ;
 	/* NOTE : S'ASSURER DE NE PAS AVOIR DE FUITES MEMOIRES AVEC LES FREE */
 }

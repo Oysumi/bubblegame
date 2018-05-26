@@ -5,11 +5,11 @@
 #include <math.h>
 #include <stdbool.h>
 #include "SDL.h"
-#include <time.h>
+#include <time.h> 
 #include <SDL/SDL_ttf.h>
-#include <SDL/SDL_mixer.h>
+#include <SDL/SDL_mixer.h> 
 
-/* Approximate pi value */
+/* Approximate pi value */ 
 #define PI 3.14159265359
 
 /* Size of the window */
