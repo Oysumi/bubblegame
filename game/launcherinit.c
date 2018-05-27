@@ -2,9 +2,9 @@
 #include "../headers/const.h"
 
 
-bool timereached ( timecontrol_t * timer )
+bool timereached ( timecheck_t * timer )
 {
-	if ( timer->currentTime - timer->previousTime > 30 )
+	if ( timer->launcher->currentTime - timer->launcher->previousTime > 30 )
 	{
 		return true ;
 	}
@@ -18,7 +18,7 @@ void launcherPosInit ( SDL_Rect * launcher )
 	launcher->y = SCREEN_HEIGHT - LAUNCHER_HEIGHT ;
 }
 
-void launchermov ( input_t * in, game_t * game, bubble_t * bubble, timecontrol_t * timer )
+void launchermov ( input_t * in, game_t * game, bubble_t * bubble, timecheck_t * timer )
 {
   
  if ( in->key[SDLK_LEFT] )
@@ -59,6 +59,6 @@ void launchermov ( input_t * in, game_t * game, bubble_t * bubble, timecontrol_t
    }
  }
 
- update_timer ( timer ) ;
+ update_timer ( timer->launcher ) ;
  
 }

@@ -64,7 +64,7 @@ void bubarray_initcenters ( game_t * game, ceiling_t * ceil )
 
 }
 
-int bubarray_centersrecalcul ( game_t * game, ceiling_t * ceil, bubble_t * bub, timecontrol_t * time, timecontrol_t * ceil_fall, timecontrol_t * expl, timecontrol_t * fall )
+int bubarray_centersrecalcul ( game_t * game, ceiling_t * ceil, bubble_t * bub, timecheck_t * timer )
 {
 	unsigned int i, j, j_max ; /* used for a loop */
 
@@ -77,7 +77,7 @@ int bubarray_centersrecalcul ( game_t * game, ceiling_t * ceil, bubble_t * bub, 
 			game->bub_center[i][j][1] += 35 ;
 			if ( game->bub_array[i][j] > 0 && game->bub_center[i][j][1] >= SCREEN_HEIGHT - LAUNCHER_HEIGHT + 35 )
 			{
-				game_over ( bub, ceil, game, time, ceil_fall, expl, fall ) ;
+				game_over ( bub, ceil, game, timer ) ;
 				return 1 ;
 			}
 		}
@@ -867,11 +867,11 @@ int delete_bub ( game_t * game, bool color, ceiling_t * ceil )
 
 }
 
-void bub_explosion ( game_t * game, unsigned int i, timecontrol_t * explosion, timecontrol_t * fall )
+void bub_explosion ( game_t * game, unsigned int i, timecheck_t * timer )
 {
 	if ( game->bub_falling[i].image->y < ( BUB_EXPL_DIV  - 1 ) * BUB_EXPL_SIZE )
 	{
-		if ( limite_fps_expl ( explosion ) )
+		if ( limite_fps_expl ( timer->explosion ) )
 		{
 			game->bub_falling[i].image->y += BUB_EXPL_SIZE ;
 			game->bub_falling[i].position->y -= 3 ;
@@ -879,16 +879,16 @@ void bub_explosion ( game_t * game, unsigned int i, timecontrol_t * explosion, t
 	}
 	else
 	{
-		if ( limite_fps_fall ( fall ) )
+		if ( limite_fps_fall ( timer->fall ) )
 		{
-			bub_falling ( game, i, fall ) ;
+			bub_falling ( game, i, timer ) ;
 		}
 	}
 }
 
-void bub_falling ( game_t * game, unsigned int i, timecontrol_t * time )
+void bub_falling ( game_t * game, unsigned int i, timecheck_t * timer )
 {
-	if ( limite_fps_fall ( time ) )
+	if ( limite_fps_fall ( timer->ceiling ) )
 	{
 		game->bub_falling[i].position->y += 1 ;
 	}

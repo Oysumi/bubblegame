@@ -20,6 +20,46 @@ void screenInit ( init_t * window )
 
 }
 
+void text_init ( text_t * text )
+{
+	/* Loading of the font */
+	text->font = TTF_OpenFont ("../font/04B_30__.TTF", 35) ;
+
+	/* Defining the color of the text (orange / golden) */
+	SDL_Color font_color = {237, 127, 16} ;
+
+	/* Loading of the first level */
+	text->level = 1 ;
+
+	/* Writting the texts in the SDL_Surface */
+	text->score = TTF_RenderText_Blended ( text->font, "SCORE", font_color ) ;
+	text->game_over = TTF_RenderText_Blended ( text->font, "GAME OVER", font_color ) ;
+	text->you_won = TTF_RenderText_Blended ( text->font, "YOU WON !", font_color ) ;
+	text->pause = TTF_RenderText_Blended ( text->font, "[ PAUSE ]", font_color ) ;
+	text->round = TTF_RenderText_Blended ( text->font, "ROUND 1", font_color ) ;
+
+	/* Defining the position of the texts */
+	text->score_pos = ( SDL_Rect * ) malloc ( sizeof ( SDL_Rect ) ) ;
+	text->score_pos->x = SCORE_POS ;
+	text->score_pos->y = BUB_SIZE ;
+
+	text->game_over_pos = ( SDL_Rect * ) malloc ( sizeof ( SDL_Rect ) ) ;
+	text->game_over_pos->x = GAME_OVER_POS ;
+	text->game_over_pos->y = SCREEN_HEIGHT / 2 - BUB_SIZE ;
+
+	text->you_won_pos = ( SDL_Rect * ) malloc ( sizeof ( SDL_Rect ) ) ;
+	text->you_won_pos->x = YOU_WON_POS ;
+	text->you_won_pos->y = SCREEN_HEIGHT / 2 - BUB_SIZE ;
+
+	text->pause_pos = ( SDL_Rect * ) malloc ( sizeof ( SDL_Rect ) ) ;
+	text->pause_pos->x = PAUSE_POS ;
+	text->pause_pos->y = SCREEN_HEIGHT / 2 - BUB_SIZE ;
+
+	text->round_pos = ( SDL_Rect * ) malloc ( sizeof ( SDL_Rect ) ) ;
+	text->round_pos->x = ROUND_POS ;
+	text->round_pos->y = SCREEN_HEIGHT / 2 - BUB_SIZE ;
+}
+
 void frameImageInit ( init_t * window )
 {
 	SDL_Surface * temp ;
@@ -169,18 +209,43 @@ void ceilingInit ( ceiling_t * ceil )
 
 	SDL_Surface * temp ;
 
+	ceil->ceiling = ( ceiling_control_t * ) malloc ( sizeof ( ceiling_control_t ) ) ;
+	ceil->first_chain = ( ceiling_control_t * ) malloc ( sizeof ( ceiling_control_t ) ) ;
+	ceil->second_chain = ( ceiling_control_t * ) malloc ( sizeof ( ceiling_control_t ) ) ;
+
 	/* Loading the image of the ceiling */
 	temp = SDL_LoadBMP ( "../img/top/frame_top.bmp" ) ;
-	ceil->image_ceiling = SDL_DisplayFormat ( temp ) ;
+	ceil->ceiling->image_ceiling = SDL_DisplayFormat ( temp ) ;
 
 	/* Loading the image of the chain */
 	temp = SDL_LoadBMP ( "../img/top/frame_chain.bmp") ;
-	ceil->image_chain = SDL_DisplayFormat ( temp ) ;
+	ceil->first_chain->image_chain = SDL_DisplayFormat ( temp ) ;
+	ceil->second_chain->image_chain = SDL_DisplayFormat ( temp ) ;
 
 	SDL_FreeSurface ( temp ) ;
 
-	ceil->position.x = BOARD_LEFT ;
-	ceil->position.y = BOARD_TOP ; /* It's not important at this state */
+	ceil->ceiling->ceil_pos = ( SDL_Rect * ) malloc ( sizeof ( SDL_Rect ) ) ;
+	ceil->first_chain->chain_pos = ( SDL_Rect * ) malloc ( sizeof ( SDL_Rect ) ) ;
+	ceil->first_chain->chain_sprite = ( SDL_Rect * ) malloc ( sizeof ( SDL_Rect ) ) ;
+	ceil->second_chain->chain_pos = ( SDL_Rect * ) malloc ( sizeof ( SDL_Rect ) ) ;
+	ceil->second_chain->chain_sprite = ( SDL_Rect * ) malloc ( sizeof ( SDL_Rect ) ) ;
+
+	ceil->ceiling->ceil_pos->x = BOARD_LEFT ;
+	ceil->ceiling->ceil_pos->y = BOARD_TOP ;
+
+	ceil->first_chain->chain_sprite->x = 0 ;
+	ceil->first_chain->chain_sprite->y = 0 ;
+	ceil->first_chain->chain_sprite->w = CHAIN_WIDTH ;
+
+	ceil->second_chain->chain_sprite->x = 0 ;
+	ceil->second_chain->chain_sprite->y = 0 ;
+	ceil->second_chain->chain_sprite->w = CHAIN_WIDTH ;
+
+	ceil->first_chain->chain_pos->y = BOARD_TOP ;
+	ceil->first_chain->chain_pos->x = BOARD_LEFT + 1.5 * BUB_SIZE ;
+
+	ceil->second_chain->chain_pos->y = BOARD_TOP ;
+	ceil->second_chain->chain_pos->x = BOARD_RIGHT - 2 * BUB_SIZE ;
 
 	ceilingstateInit ( ceil ) ;
 
@@ -217,11 +282,12 @@ void setTransparency ( game_t * game, init_t * window, ceiling_t * ceil )
 
 	}
 
-	SDL_SetColorKey ( ceil->image_ceiling, SDL_SRCCOLORKEY | SDL_RLEACCEL, colorkey ) ;
-	SDL_SetColorKey ( ceil->image_chain, SDL_SRCCOLORKEY | SDL_RLEACCEL, colorkey ) ;
+	SDL_SetColorKey ( ceil->ceiling->image_ceiling, SDL_SRCCOLORKEY | SDL_RLEACCEL, colorkey ) ;
+	SDL_SetColorKey ( ceil->first_chain->image_chain, SDL_SRCCOLORKEY | SDL_RLEACCEL, colorkey ) ;
+	SDL_SetColorKey ( ceil->second_chain->image_chain, SDL_SRCCOLORKEY | SDL_RLEACCEL, colorkey ) ;
 }
 
-void updateScreen ( bubble_t * bub, SDL_Rect * launcher , init_t * window, game_t * game, timecontrol_t * timer, ceiling_t * ceil, timecontrol_t * explosion, timecontrol_t * fall )
+void updateScreen ( bubble_t * bub, SDL_Rect * launcher , init_t * window, game_t * game, timecheck_t * timer, ceiling_t * ceil )
 {
 	unsigned int i, j ;
 	unsigned int j_max ;
@@ -249,25 +315,16 @@ void updateScreen ( bubble_t * bub, SDL_Rect * launcher , init_t * window, game_
 	SDL_BlitSurface ( window->frame, NULL, window->screen, &framePos ) ;
 
 	/* We can draw the top falling */
-	SDL_Rect ceiling ;
-	SDL_Rect chain ;
-	SDL_Rect test ;
 
-	ceiling.x = ceil->position.x ;
-	ceiling.y = TOP_START + ceil->state * 35 ;
-
-	chain.x = 0 ;
-	chain.y = 0 ;
-	chain.h = TOP_START + ceil->state * 35 - 25 ;
-	chain.w = CHAIN_WIDTH ;
-
-	test.x = ( BOARD_RIGHT + BOARD_LEFT - chain.w ) / 2 ;
-	test.y = ceil->position.y ; 
+	ceil->ceiling->ceil_pos->y = TOP_START + ceil->state * 35 ;
+	ceil->first_chain->chain_sprite->h = TOP_START + ceil->state * 35 - 25 ;
+	ceil->second_chain->chain_sprite->h = TOP_START + ceil->state * 35 - 25 ;
 
 	if ( ceil->state > 0 )
 	{
-		SDL_BlitSurface ( ceil->image_chain, &chain, window->screen, &test ) ;
-		SDL_BlitSurface ( ceil->image_ceiling, NULL, window->screen, &ceiling ) ;
+		SDL_BlitSurface ( ceil->first_chain->image_chain, ceil->first_chain->chain_sprite, window->screen, ceil->first_chain->chain_pos ) ;
+		SDL_BlitSurface ( ceil->second_chain->image_chain, ceil->second_chain->chain_sprite, window->screen, ceil->second_chain->chain_pos ) ;
+		SDL_BlitSurface ( ceil->ceiling->image_ceiling, NULL, window->screen, ceil->ceiling->ceil_pos ) ;
 	}
 
 
@@ -306,8 +363,8 @@ void updateScreen ( bubble_t * bub, SDL_Rect * launcher , init_t * window, game_
 	  }
 	}
 
-	get_timer ( explosion ) ;
-	get_timer ( fall ) ;
+	get_timer ( timer->explosion ) ;
+	get_timer ( timer->fall ) ;
 
 	for ( i = 0 ; i < game->fall_head ; i++ )
 	{ 
@@ -318,11 +375,11 @@ void updateScreen ( bubble_t * bub, SDL_Rect * launcher , init_t * window, game_
 		}
 		if ( game->bub_falling[i].isExplosing )
 		{
-			bub_explosion ( game, i, explosion, fall ) ;
+			bub_explosion ( game, i, timer ) ;
 		}
 		else
 		{ 
-			bub_falling ( game, i, fall ) ;
+			bub_falling ( game, i, timer ) ;
 		}
 		if ( !bub_isOut ( game, i ) )
 		{
@@ -330,14 +387,14 @@ void updateScreen ( bubble_t * bub, SDL_Rect * launcher , init_t * window, game_
 		} 
 	}
 
-	if ( limite_fps_expl ( explosion ) )
+	if ( limite_fps_expl ( timer->explosion ) )
 	{
-		update_timer ( explosion ) ;
+		update_timer ( timer->explosion ) ;
 	}
 
-	if ( limite_fps_fall ( fall ) )
+	if ( limite_fps_fall ( timer->fall ) )
 	{
-		update_timer ( fall ) ;
+		update_timer ( timer->fall ) ;
 	}
 
 	game->nb_bubout = 0 ;
@@ -346,12 +403,12 @@ void updateScreen ( bubble_t * bub, SDL_Rect * launcher , init_t * window, game_
 	
 	/* Display the current bubble which is moving */
 	SDL_BlitSurface ( bub->sprite, &bubRect, window->screen, &(bub->pos) ) ; /* &(bub->position) ? */
-	SDL_BlitSurface ( ceil->image_ceiling, NULL, window->screen, &ceiling ) ;
+	SDL_BlitSurface ( ceil->ceiling->image_ceiling, NULL, window->screen, ceil->ceiling->ceil_pos ) ;
 
 	free ( temp ) ;
 
 	/* We update the time */
-	get_timer ( timer ) ;
+	get_timer ( timer->ceiling ) ;
 	
 }
 
@@ -467,19 +524,19 @@ bool we_have_a_winner ( game_t * game )
 	return true ;
 }
 
-int sky_is_falling ( timecontrol_t * time, ceiling_t * ceil, game_t * game, bubble_t * bub, timecontrol_t * expl, timecontrol_t * fall ) 
+int sky_is_falling ( timecheck_t * timer, ceiling_t * ceil, game_t * game, bubble_t * bub ) 
 {
-	if ( time->currentTime - time->previousTime > 10000 )
+	if ( timer->ceiling->currentTime - timer->ceiling->previousTime > 10000 )
 	{
 		ceil->state += 1 ;
-		update_timer ( time ) ;
-		bubarray_centersrecalcul ( game, ceil, bub, time, time, expl, fall ) ;
+		update_timer ( timer->ceiling ) ;
+		bubarray_centersrecalcul ( game, ceil, bub, timer ) ;
 	} 
 
 	return 1 ;
 }
 
-int game_over ( bubble_t * bub, ceiling_t * ceil, game_t * game, timecontrol_t * time, timecontrol_t * ceil_fall, timecontrol_t * expl, timecontrol_t * fall )
+int game_over ( bubble_t * bub, ceiling_t * ceil, game_t * game, timecheck_t * timer )
 {
 	printf("GAME OVER.\n") ; 
 	ceilingstateInit ( ceil ) ;   
@@ -488,34 +545,32 @@ int game_over ( bubble_t * bub, ceiling_t * ceil, game_t * game, timecontrol_t *
 	initBubblesOnBoard ( game, bub ) ; 
 	bubPosInit ( bub, game ) ; 
 	bubcomponent_init ( game ) ; 
-	update_timer ( time ) ;
-    update_timer ( ceil_fall ) ;
-	update_timer ( expl ) ;
-	update_timer ( fall ) ;
-	get_timer ( time ) ; 
-    get_timer ( ceil_fall ) ;
-	get_timer ( expl ) ;
-	get_timer ( fall ) ;
+	update_timer ( timer->ceiling ) ;
+    update_timer ( timer->explosion ) ;
+	update_timer ( timer->fall ) ;
+    get_timer ( timer->ceiling ) ;
+	get_timer ( timer->explosion ) ;
+	get_timer ( timer->fall ) ;
+
 	return EXIT_SUCCESS ;
 }
 
-int you_win ( bubble_t * bub, ceiling_t * ceil, game_t * game, timecontrol_t * time, timecontrol_t * ceil_fall, timecontrol_t * expl, timecontrol_t * fall )
+int you_win ( bubble_t * bub, ceiling_t * ceil, game_t * game, timecheck_t * timer )
 {
 	printf("CONGRATULATIONS ! YOU WIN !\n") ;
-    ceilingstateInit ( ceil ) ;
-    bubarray_free ( game ) ;  
-    gameInit ( game, ceil ) ;    
-	initBubblesOnBoard ( game, bub ) ;   
+    ceilingstateInit ( ceil ) ;   
+	bubarray_free ( game ) ; 
+	gameInit ( game, ceil ) ;    
+	initBubblesOnBoard ( game, bub ) ; 
 	bubPosInit ( bub, game ) ; 
-	bubcomponent_init ( game ) ;
-	update_timer ( time ) ;
-    update_timer ( ceil_fall ) ;
-	update_timer ( expl ) ;
-	update_timer ( fall ) ;
-	get_timer ( time ) ;
-    get_timer ( ceil_fall ) ;
-	get_timer ( expl ) ;
-	get_timer ( fall ) ;
+	bubcomponent_init ( game ) ; 
+	update_timer ( timer->ceiling ) ;
+    update_timer ( timer->explosion ) ;
+	update_timer ( timer->fall ) ;
+    get_timer ( timer->ceiling ) ;
+	get_timer ( timer->explosion ) ;
+	get_timer ( timer->fall ) ;
+
 	return EXIT_SUCCESS ; 
 }
 
@@ -537,6 +592,53 @@ bool limite_fps_fall ( timecontrol_t * time )
 	return false ;
 }
 
-/* NOTE : FAIRE DES FREE POUR CES DEUX FONCTIONS POUR EVITER FUITE MEMOIRE */
+void init_time_variable ( timecheck_t * timer )
+{
+	timer->launcher = ( timecontrol_t * ) malloc ( sizeof ( timecontrol_t ) ) ; 
+	timer->ceiling = ( timecontrol_t * ) malloc ( sizeof ( timecontrol_t ) ) ;
+	timer->explosion = ( timecontrol_t * ) malloc ( sizeof ( timecontrol_t ) ) ; 
+	timer->fall = ( timecontrol_t * ) malloc ( sizeof ( timecontrol_t ) ) ; 
+	timer->pause = ( timecontrol_t * ) malloc ( sizeof ( timecontrol_t ) ) ;
+
+	init_timer ( timer->launcher ) ;  
+	init_timer ( timer->ceiling ) ;
+	init_timer ( timer->explosion ) ; 
+	init_timer ( timer->fall ) ;
+	init_timer ( timer->pause) ;
+}
+
+bool check_pause ( input_t * in, timecheck_t * timer )
+{
+	if ( timer->pause->currentTime - timer->pause->previousTime >= 1000 )
+	{
+		if ( in->key[SDLK_p] == 1 )
+		{
+			in->pause = 1 ;
+			update_timer ( timer->pause ) ;
+			return true ;
+		}
+	} 
+
+	return false ;
+}
+
+void print_pause ( text_t * text, input_t * in, bubble_t * bub, init_t * window, timecheck_t * timer )
+{
+	get_timer ( timer->pause ) ;
+	SDL_BlitSurface ( text->pause, NULL, window->screen, text->pause_pos ) ;
+
+	if ( timer->pause->currentTime - timer->pause->previousTime >= 1000 )
+	{
+		HandleEvent ( in, bub ) ;
+		if ( check_pause ( in, timer ) )
+		{
+			in->pause = 0 ;
+			update_timer ( timer->pause ) ;
+		}
+	}
+
+	SDL_UpdateRect ( window->screen, 0, 0, 0, 0 ) ; 
+
+}
 
 #endif

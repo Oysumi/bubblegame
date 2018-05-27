@@ -23,12 +23,12 @@ int main ( int argc, char * argv[] )
      
 	/* Declaration of the variables */
 	game_t * game ;
-	game = ( game_t * ) malloc ( sizeof ( game_t ) ) ;
+	game = ( game_t * ) malloc ( sizeof ( game_t ) ) ; 
    
-	ceiling_t * ceil ;
+	ceiling_t * ceil ;  
 	ceil = ( ceiling_t * ) malloc ( sizeof ( ceiling_t ) ) ;  
   
-  	ceilingInit ( ceil ) ;
+  	ceilingInit ( ceil ) ;                       
 	gameInit ( game, ceil ) ; /* Including bubarray_init */       
 	bubImageInit ( game ) ; 
 	bubImageExplosionInit ( game ) ;   	       
@@ -57,66 +57,73 @@ int main ( int argc, char * argv[] )
 	input_t * in ;   
 
 	in = ( input_t * ) malloc ( sizeof ( input_t ) ) ;
+	in->pause = 0 ; 	
 
 	memset ( in, 0, sizeof ( * in ) ) ; /* Fill the whole array of zeros */
    
 	/* *********************** INITIALIZATION OF TIME VARIABLES ********************* */
  
-	/* Will regulate the number of image and the speed of the launcher */
-	timecontrol_t * time ; 
-	timecontrol_t * explosion_time ; 
-	timecontrol_t * fall_time ;         
+	/* Will regulate the number of images of the different elements of the screen ( launcher, bubble, ceiling... ) */
+	timecheck_t * timer ;
+
+	timer = ( timecheck_t * ) malloc ( sizeof ( timecheck_t ) ) ;         
   
-	time = ( timecontrol_t * ) malloc ( sizeof ( timecontrol_t ) ) ; 
-	explosion_time = ( timecontrol_t * ) malloc ( sizeof ( timecontrol_t ) ) ; 
-	fall_time = ( timecontrol_t * ) malloc ( sizeof ( timecontrol_t ) ) ;
- 
-	init_timer ( time ) ;  
-	init_timer ( explosion_time ) ;
-	init_timer ( fall_time ) ; 
-
-	/* Allow the ceiling to fall */
-	timecontrol_t * ceil_fall ;
-
-	ceil_fall = ( timecontrol_t * ) malloc ( sizeof ( timecontrol_t ) ) ;
-
-	init_timer ( ceil_fall ) ; 
+	init_time_variable ( timer ) ;
 
 	/* ********************** INITIALIZATION OF MUSIC VARIABLES ******************** */
 
-	SDL_WM_SetCaption("SDL_Mixer", NULL) ;
-
 	Mix_OpenAudio (44100, MIX_DEFAULT_FORMAT, 2, 1024) ;
-
+  
 	if(Mix_OpenAudio(44100, MIX_DEFAULT_FORMAT, MIX_DEFAULT_CHANNELS, 1024) == -1) //Initialisation de l'API Mixer
 	{
    		printf("%s", Mix_GetError());
-	}
+	} 
 
 	Mix_Music *musique ;
 
 	musique = Mix_LoadMUS ("../music/mario-world-intro.ogg") ;
 
 	Mix_PlayMusic (musique, -1) ; 
- 
+
+	/* ********************** INITIALIZATION OF TEXT VARIABLES ******************** */
+	
+	TTF_Init () ;
+
+	text_t * text ;
+	text = ( text_t * ) malloc ( sizeof ( text_t ) ) ;
+
+	text_init ( text ) ;      
+
 	/* ************************ BEGINNING OF THE GAME ****************************** */ 
   
-	while ( !escape ( in ) )   
-	{  
-		  
+	while ( !escape ( in ) )    
+	{    
+		    
 		/* We refresh the screen to draw all the images/sprites */  
-		updateScreen ( bub, launcherPos, screen, game, time, ceil, explosion_time, fall_time ) ; 
+		updateScreen ( bub, launcherPos, screen, game, timer, ceil ) ; 
+  
+		/* Displaying the score */
+		SDL_BlitSurface ( text->score, NULL, screen->screen, text->score_pos ) ;    
+ 
+		/* We launch the timer */   
+		get_timer ( timer->launcher ) ; 
+		get_timer ( timer->pause ) ;  
         
-		/* We launch the timer */ 
-		get_timer ( time ) ; 
-
 		/* We wait the "instructions" given by the user */
-		HandleEvent ( in, bub ) ;  
+		HandleEvent ( in, bub ) ;    
+
+		/* We check if the player wants a break */   
+		check_pause ( in, timer ) ;   
+  
+		while ( in->pause )
+		{
+			print_pause ( text, in, bub, screen, timer ) ;  
+		}
 
 		/* We regulate the speed of the launcher thanks to a timer */
-		if ( timereached ( time ) ) 
+		if ( timereached ( timer ) ) 
 		{  
-		  launchermov ( in, game, bub, time ) ; 
+		  launchermov ( in, game, bub, timer ) ;  
 		}  
            
 		if ( bub->launched )             
@@ -124,7 +131,7 @@ int main ( int argc, char * argv[] )
 		  bubLaunched ( bub, game ) ;    
 		} 
    
-		if ( bub->isMoving )    
+		if ( bub->isMoving )       
 		{   
   
 		  /* We have to check differen t cases *    
@@ -139,7 +146,7 @@ int main ( int argc, char * argv[] )
 		    	bub_place ( bub, game ) ;
 		    	if ( connex ( game, ceil, true ) == 0 )  
 		    	{ 
-		        	game_over ( bub, ceil, game, time, ceil_fall, explosion_time, fall_time ) ; 
+		        	game_over ( bub, ceil, game, timer ) ; 
 		        }
 		        else
 		        {
@@ -158,23 +165,31 @@ int main ( int argc, char * argv[] )
  				/* We check if the player won */
       			if ( we_have_a_winner ( game ) )  
       			{
-      				you_win ( bub, ceil, game, time, ceil_fall, explosion_time, fall_time ) ;   
+      				you_win ( bub, ceil, game, timer ) ;   
       			} 
       			/* If not, we place the new bubble on the launcher */
       			else
 		    	{ 
-		    		bubPosInit ( bub, game ) ;    
+		    		bubPosInit ( bub, game ) ;        
 		    	}        	           
 		    }        
 		  }            
 		}        
 
 		SDL_UpdateRect ( screen->screen, 0, 0, 0, 0 ) ; 
-		get_timer ( ceil_fall ) ;
-		sky_is_falling ( ceil_fall, ceil, game, bub, explosion_time, fall_time ) ;          
+		get_timer ( timer->ceiling ) ;
+		sky_is_falling ( timer, ceil, game, bub ) ;       
 
 	}
- 
+   
+ 	TTF_CloseFont ( text->font ) ;
+    TTF_Quit () ;
+    SDL_FreeSurface ( text->score ) ;
+    SDL_FreeSurface ( text->you_won ) ;
+    SDL_FreeSurface ( text->game_over ) ;
+    SDL_FreeSurface ( text->round ) ;
+    SDL_FreeSurface ( text->pause ) ;
+    /* FAIRE DES FREE POUR LES SDL_RECT */
 	bubarray_freecenters ( game ) ;  
 	bubarray_init ( game ) ;         
 	free ( bub ) ;       
@@ -182,7 +197,7 @@ int main ( int argc, char * argv[] )
 	free ( game ) ;  
 	free ( launcherPos ) ;
 	free ( in ) ;
-	free ( time ) ;
+	free ( timer ) ;
 	SDL_FreeSurface ( screen->launcher ) ;
 	SDL_FreeSurface ( screen->frame ) ;
 	SDL_FreeSurface ( screen->screen ) ;
